@@ -29,6 +29,10 @@ ARTIFACTS = {
     "cf_comparison": BASE_DIR / "cf_comparison.csv",
     "alpha_evaluation": BASE_DIR / "alpha_evaluation.csv",
     "metadata": BASE_DIR / "metadata.json",
+    # Artefak clustering (diekspor dari notebook K-Prototypes)
+    "cluster_model": BASE_DIR / "kproto_final.joblib",
+    "cluster_users": BASE_DIR / "cluster_users.csv",
+    "popular_books": BASE_DIR / "popular_books.csv",
 }
 
 # =========================================================
@@ -36,24 +40,108 @@ ARTIFACTS = {
 # =========================================================
 st.markdown("""
 <style>
-    .main {background-color: #f7f8fc;}
-    .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    :root {
+        --green-dark: #173f2b;
+        --green: #247447;
+        --green-mid: #3f8f55;
+        --green-soft: #eaf5e9;
+        --yellow: #f2d34f;
+        --yellow-soft: #fff8d9;
+        --ink: #20352a;
+        --muted: #68796d;
+        --surface: #ffffff;
+        --line: #e2ebdf;
+    }
+
+    html, body, [class*="css"], [data-testid="stAppViewContainer"] {
+        font-family: 'DM Sans', sans-serif;
+        color: var(--ink);
+    }
+    h1, h2, h3, h4, [data-testid="stMetricValue"] {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        letter-spacing: -0.035em;
+    }
+    .stApp {background: #f6f9f2;}
+    [data-testid="stHeader"] {background: rgba(246,249,242,.88);}
+    .block-container {padding-top: 1.7rem; padding-bottom: 2.5rem; max-width: 1450px;}
+
     .hero {
-        padding: 1.35rem 1.6rem; border-radius: 18px;
-        background: linear-gradient(120deg, #13294b, #245b83);
-        color: white; margin-bottom: 1.2rem;
+        padding: 1.8rem 2rem;
+        border-radius: 22px;
+        background: linear-gradient(115deg, #173f2b 0%, #247447 68%, #3f8f55 100%);
+        color: #ffffff;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 12px 30px rgba(23,63,43,.13);
+        border: 1px solid rgba(255,255,255,.14);
+        position: relative;
+        overflow: hidden;
     }
-    .hero h1 {font-size: 2rem; margin: 0 0 .35rem 0;}
-    .hero p {font-size: 1rem; opacity: .9; margin: 0;}
+    .hero:after {
+        content: "";
+        position: absolute;
+        width: 180px; height: 180px;
+        border-radius: 50%;
+        right: -35px; top: -70px;
+        background: rgba(242,211,79,.22);
+    }
+    .hero h1 {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-size: clamp(1.8rem, 3vw, 2.45rem);
+        font-weight: 800; line-height: 1.2;
+        margin: 0 0 .55rem 0; color: #ffffff;
+    }
+    .hero p {font-size: 1rem; color: #edf8e9; margin: 0; line-height: 1.65;}
+
+    [data-testid="stSidebar"] {
+        background: #edf5e8;
+        border-right: 1px solid #dce9d7;
+    }
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {color: var(--green-dark);}
+    [data-testid="stSidebar"] [data-testid="stRadio"] label {font-weight: 600;}
+
     div[data-testid="stMetric"] {
-        background: white; padding: 16px; border-radius: 14px;
-        border: 1px solid #e7eaf1;
+        background: var(--surface);
+        padding: 1.1rem 1.15rem;
+        border-radius: 17px;
+        border: 1px solid var(--line);
+        box-shadow: 0 5px 18px rgba(32,53,42,.035);
     }
-    .book-card {
-        background: white; border: 1px solid #e7eaf1;
-        border-radius: 12px; padding: 14px; margin-bottom: 10px;
+    [data-testid="stMetricLabel"] {color: var(--muted); font-weight: 600;}
+    [data-testid="stMetricValue"] {color: var(--green-dark); font-weight: 800;}
+
+    h2, h3 {color: var(--green-dark);}
+    .stButton > button, .stDownloadButton > button,
+    [data-testid="stFormSubmitButton"] > button {
+        border-radius: 11px;
+        border: 1px solid var(--green);
+        background: var(--green);
+        color: #ffffff;
+        font-weight: 700;
+        padding: .55rem 1rem;
+        transition: all .18s ease;
     }
-    .small-note {color: #64748b; font-size: .85rem;}
+    .stButton > button:hover, .stDownloadButton > button:hover,
+    [data-testid="stFormSubmitButton"] > button:hover {
+        background: var(--green-dark);
+        border-color: var(--green-dark);
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+    div[role="radiogroup"] label, [data-testid="stSelectbox"] label,
+    [data-testid="stSlider"] label, [data-testid="stTextInput"] label {
+        color: var(--green-dark);
+        font-weight: 600;
+    }
+    [data-testid="stDataFrame"] {
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        overflow: hidden;
+    }
+    .small-note {color: var(--muted); font-size: .85rem;}
+    hr {border-color: var(--line);}
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,7 +264,13 @@ def recommend_for_user(user_id, alpha, top_n, like_threshold):
 st.sidebar.title("📚 Navigasi")
 page = st.sidebar.radio(
     "Pilih halaman",
-    ["Ringkasan", "Rekomendasi Buku", "Evaluasi Model", "Data Buku & Rating"],
+    [
+        "Ringkasan",
+        "Rekomendasi Buku",
+        "Rekomendasi Berdasarkan Cluster",
+        "Evaluasi Model",
+        "Data Buku & Rating",
+    ],
 )
 st.sidebar.markdown("---")
 st.sidebar.caption("Hybrid Recommender System")
@@ -329,6 +423,194 @@ elif page == "Rekomendasi Buku":
                             st.caption(f"Skor hybrid: {row.get('Skor Hybrid', 0):.3f}")
         except Exception as exc:
             st.error(f"Gagal membuat rekomendasi: {exc}")
+
+# =========================================================
+# Rekomendasi berbasis clustering K-Prototypes
+# =========================================================
+elif page == "Rekomendasi Berdasarkan Cluster":
+    st.subheader("Rekomendasi Buku Berdasarkan Cluster Pengguna")
+    st.write(
+        "Masukkan usia dan negara untuk memprediksi cluster pengguna. "
+        "Buku kemudian diurutkan berdasarkan Bayesian Weighted Rating "
+        "yang dihitung untuk cluster tersebut."
+    )
+
+    required_cluster_files = [
+        ARTIFACTS["cluster_model"],
+        ARTIFACTS["cluster_users"],
+        ARTIFACTS["popular_books"],
+    ]
+    missing_cluster_files = [p.name for p in required_cluster_files if not p.exists()]
+
+    if missing_cluster_files:
+        st.warning(
+            "Artefak clustering belum ditemukan. Ekspor tiga file berikut dari notebook "
+            "dan letakkan di folder yang sama dengan app.py:"
+        )
+        for filename in [
+            "kproto_final.joblib",
+            "cluster_users.csv",
+            "popular_books.csv",
+        ]:
+            st.code(filename, language=None)
+        st.info(
+            "Di bagian akhir jawaban, gunakan kode ekspor yang disediakan untuk "
+            "membuat ketiga file tersebut. Halaman rekomendasi hybrid tetap dapat digunakan."
+        )
+    else:
+        try:
+            cluster_model = joblib.load(ARTIFACTS["cluster_model"])
+            cluster_users_df = pd.read_csv(ARTIFACTS["cluster_users"])
+            popular_books_df = pd.read_csv(ARTIFACTS["popular_books"])
+
+            required_user_cols = {"Age", "Country", "Country_Cluster", "Cluster"}
+            required_book_cols = {
+                "Cluster", "Book-Title", "Book-Author",
+                "Jumlah_Rating", "Rata_rata_Rating", "Skor_Buku"
+            }
+            if not required_user_cols.issubset(cluster_users_df.columns):
+                raise ValueError(
+                    "Kolom cluster_users.csv tidak lengkap. "
+                    f"Kolom yang dibutuhkan: {sorted(required_user_cols)}"
+                )
+            if not required_book_cols.issubset(popular_books_df.columns):
+                raise ValueError(
+                    "Kolom popular_books.csv tidak lengkap. "
+                    f"Kolom yang dibutuhkan: {sorted(required_book_cols)}"
+                )
+
+            valid_countries = sorted(
+                cluster_users_df.loc[
+                    cluster_users_df["Country_Cluster"].astype(str) != "Other",
+                    "Country_Cluster"
+                ].dropna().astype(str).unique().tolist()
+            )
+            valid_countries = [c for c in valid_countries if c not in ["", "nan", "None"]]
+
+            with st.form("cluster_recommendation_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    age_value = st.number_input(
+                        "Usia pengguna",
+                        min_value=5,
+                        max_value=100,
+                        value=27,
+                        step=1,
+                    )
+                    n_cluster_books = st.slider(
+                        "Jumlah rekomendasi buku",
+                        min_value=5,
+                        max_value=20,
+                        value=10,
+                        step=5,
+                    )
+                with col2:
+                    country_options = valid_countries if valid_countries else ["Other"]
+                    default_country_index = (
+                        country_options.index("USA") if "USA" in country_options else 0
+                    )
+                    country_value = st.selectbox(
+                        "Negara pengguna",
+                        options=country_options,
+                        index=default_country_index,
+                    )
+                cluster_submit = st.form_submit_button(
+                    "🔎 Prediksi Cluster & Rekomendasikan Buku",
+                    type="primary",
+                )
+
+            if cluster_submit:
+                # Ikuti urutan fitur saat training: Age, Country_Cluster.
+                country_for_model = (
+                    country_value if country_value in valid_countries else "Other"
+                )
+                new_user = np.array(
+                    [[float(age_value), str(country_for_model)]],
+                    dtype=object,
+                )
+                predicted_cluster = int(
+                    cluster_model.predict(new_user, categorical=[1])[0]
+                )
+
+                cluster_profile = cluster_users_df[
+                    pd.to_numeric(cluster_users_df["Cluster"], errors="coerce")
+                    == predicted_cluster
+                ]
+                cluster_books = popular_books_df[
+                    pd.to_numeric(popular_books_df["Cluster"], errors="coerce")
+                    == predicted_cluster
+                ].copy()
+
+                k1, k2, k3 = st.columns(3)
+                k1.metric("Cluster diprediksi", f"Cluster {predicted_cluster}")
+                k2.metric("Pengguna dalam cluster", f"{len(cluster_profile):,}")
+                k3.metric("Buku tersedia", f"{cluster_books['ISBN'].nunique() if 'ISBN' in cluster_books.columns else len(cluster_books):,}")
+
+                if not cluster_profile.empty:
+                    avg_age = pd.to_numeric(
+                        cluster_profile["Age"], errors="coerce"
+                    ).mean()
+                    st.caption(
+                        f"Profil cluster: rata-rata usia sekitar {avg_age:.1f} tahun. "
+                        "Karakteristik ini merupakan ringkasan data training, bukan batas mutlak cluster."
+                    )
+
+                if cluster_books.empty:
+                    st.warning("Belum ada rekomendasi buku yang tersedia untuk cluster ini.")
+                else:
+                    cluster_books = cluster_books.dropna(subset=["Book-Title"])
+                    cluster_books = cluster_books.sort_values(
+                        ["Skor_Buku", "Jumlah_Rating"],
+                        ascending=[False, False],
+                    ).head(n_cluster_books)
+
+                    st.markdown("### Buku yang direkomendasikan")
+                    chart_df = cluster_books.copy()
+                    chart_df["Label Buku"] = chart_df["Book-Title"].astype(str).str.slice(0, 55)
+                    fig = px.bar(
+                        chart_df.sort_values("Skor_Buku", ascending=True),
+                        x="Skor_Buku",
+                        y="Label Buku",
+                        orientation="h",
+                        hover_data=[
+                            c for c in [
+                                "Book-Title", "Book-Author", "Jumlah_Rating",
+                                "Rata_rata_Rating"
+                            ] if c in chart_df.columns
+                        ],
+                        title="Peringkat buku berdasarkan Bayesian Weighted Rating",
+                        text_auto=".3f",
+                    )
+                    fig.update_layout(
+                        height=max(420, 34 * len(chart_df)),
+                        yaxis_title="",
+                        xaxis_title="Skor Bayesian Weighted Rating",
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    display_columns = [
+                        c for c in [
+                            "ISBN", "Book-Title", "Book-Author", "Jumlah_Rating",
+                            "Rata_rata_Rating", "Rata_rata_Cluster", "Skor_Buku"
+                        ] if c in cluster_books.columns
+                    ]
+                    st.dataframe(
+                        cluster_books[display_columns],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                    st.download_button(
+                        "⬇️ Unduh rekomendasi cluster (CSV)",
+                        data=cluster_books[display_columns].to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"rekomendasi_cluster_{predicted_cluster}.csv",
+                        mime="text/csv",
+                    )
+        except Exception as exc:
+            st.error(f"Gagal memuat model clustering: {exc}")
+            st.caption(
+                "Pastikan model K-Prototypes, versi pustaka, nama kolom, dan urutan fitur "
+                "sama dengan yang digunakan saat training di notebook."
+            )
 
 # =========================================================
 # Halaman evaluasi
