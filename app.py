@@ -266,7 +266,7 @@ page = st.sidebar.radio(
     "Pilih halaman",
     [
         "Ringkasan",
-        "Rekomendasi Buku",
+        "Rekomendasi 5 Buku",
         "Rekomendasi Berdasarkan Cluster",
         "Evaluasi Model",
         "Data Buku & Rating",
