@@ -13,7 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Konfigurasi
 # =========================================================
 st.set_page_config(
-    page_title="Book Recommendation Dashboard",
+    page_title="Book Recommendation Dashboard 99",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
